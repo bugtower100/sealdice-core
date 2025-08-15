@@ -198,20 +198,12 @@ func (ctx *MsgContext) GenDefaultRollVmConfig() *ds.RollConfig {
 		if detailStr == ctx.Ret.ToString() {
 			detailStr = "" // 如果detail和结果值完全一致，那么将其置空
 		}
-		ctx.StoreNameLocal("details", ds.NewArrayValRaw(lo.Reverse(detailArr)))
+		ctx.StoreNameLocal("details", ds.NewArrayValRaw(lo.Reverse(detailArr))) //nolint:staticcheck // old code
 		return detailStr
 	}
 
 	// 设置默认骰子面数
-	if ctx.Group != nil {
-		// 情况不明，在sealchat的第一次测试中出现Group为nil
-		config.DefaultDiceSideExpr = strconv.FormatInt(ctx.Group.DiceSideNum, 10)
-		if config.DefaultDiceSideExpr == "0" {
-			config.DefaultDiceSideExpr = "100"
-		}
-	} else {
-		config.DefaultDiceSideExpr = "100"
-	}
+	config.DefaultDiceSideExpr = strconv.FormatInt(getDefaultDicePoints(ctx), 10)
 
 	return &config
 }
@@ -422,6 +414,9 @@ func DiceExprEvalBase(ctx *MsgContext, s string, flags RollExtraFlags) (*VMResul
 	vm.Config.DisableStmts = flags.DisableBlock
 	vm.Config.IgnoreDiv0 = flags.IgnoreDiv0
 	vm.Config.DiceMaxMode = flags.BigFailDiceOn
+	if vm.Config.DefaultDiceSideExpr == "" {
+		vm.Config.DefaultDiceSideExpr = strconv.FormatInt(flags.DefaultDiceSideNum, 10)
+	}
 
 	var cocFlagVarPrefix string
 	if flags.CocVarNumberMode {
@@ -882,9 +877,10 @@ func TextMapCompatibleCheck(d *Dice, category, k string, textItems []TextTemplat
 		m := reEngineVersionMark.FindStringSubmatch(formatExpr)
 		if len(m) > 0 {
 			v := m[1]
-			if v == "v1" {
+			switch v {
+			case "v1":
 				ver = "v1" // 强制v1
-			} else if v == "v2" {
+			case "v2":
 				ver = "v2" // 强制v2
 			}
 		}
